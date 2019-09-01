@@ -7,12 +7,76 @@ class DocumentData:
 
 
 class FieldValueSpecs:
-    space = True
+    space = False
     nospace = True
     valueLength=0
     number = False
     fieldType = "noSpacedCharacterString"
+    wildString = ""
+    isWildString = False
 
+
+def divide_number(number, parts_number, allow_zero = False):
+    if(number == parts_number):                     #if number number of parts is equal to the length
+        return [1]*number
+    if (parts_number > number):
+        raise ValueError("Number of parts can't be higher than the length")
+    parts = []
+    number_rest = number
+    for i in range(1, parts_number + 1):
+        if (i == parts_number):
+            parts.append(number_rest)
+            break
+        else:
+            new_number = random.randint(0, number_rest) if allow_zero else random.randint(1, (number_rest - (parts_number - i)) // 2)
+        number_rest -= new_number
+        parts.append(new_number)
+    random.shuffle(parts)
+    return parts
+
+
+
+def countAsterisk(s):
+    totalAsterisk = s.count("*") - s.count("\*")
+    return totalAsterisk                            #\* is a special character.
+
+def countQuestionMark(s):
+    totalQM = s.count("?")-s.count("\?")            #\? is a special character.
+    return totalQM
+
+def generateNoSpacedWildString(length , wildString):
+    totalAsterisk = countAsterisk(wildString)
+    totalQuestionMark = countQuestionMark(wildString)
+    #print(length,totalAsterisk)
+    parts = divide_number(length-totalQuestionMark,totalAsterisk)   #number of character per *
+    #print(parts)
+    value = ""
+    currentAstrickIndex = 0                                   #parts index basically
+    for s in wildString:
+        if(s == "*"):
+            value += generateNoSpacedCharacterString(parts[currentAstrickIndex])
+            currentAstrickIndex += 1
+        elif(s == "?"):
+            value += generateNoSpacedCharacterString(1)
+        else:
+            value += s
+    return value
+
+def generateSpacedWildString(length , wildString):
+    totalAsterisk = countAsterisk(wildString)
+    totalQuestionMark = countQuestionMark(wildString)
+    parts = divide_number(length-totalQuestionMark,totalAsterisk)   #number of character per *
+    value = ""
+    currentAstrickIndex = 0
+    for s in wildString:
+        if(s == "*"):
+            value += generateSpacedCharacterString(parts[currentAstrickIndex])
+            currentAstrickIndex += 1
+        elif(s == "?"):
+            value += generateSpacedCharacterString(1)
+        else:
+            value += s
+    return value
 
 def generateNumbers(length):
     rangeStart = 10**(length-1)
@@ -61,9 +125,9 @@ def parseFieldValue(value):                 #value contains templates value data
     fieldValueSpecs = FieldValueSpecs()
     for attribute in value:
         fieldValueSpecs = setFieldValueSpecs(attribute,fieldValueSpecs)
-    fieldValueSpecs.fieldType = validateFieldValueSpecs(fieldValueSpecs)
-    print(fieldValueSpecs.fieldType)
-    print(fieldValueSpecs.space,fieldValueSpecs.nospace,fieldValueSpecs.number,fieldValueSpecs.valueLength)
+    fieldValueSpecs.fieldType = getValueType(fieldValueSpecs)
+    #print(fieldValueSpecs.fieldType)
+    #print(fieldValueSpecs.space,fieldValueSpecs.nospace,fieldValueSpecs.number,fieldValueSpecs.valueLength)
     value = generateFieldValue(fieldValueSpecs)
     return value
 
@@ -74,15 +138,26 @@ def generateFieldValue(fieldValueSpecs):
         return generateNoSpacedCharacterString(fieldValueSpecs.valueLength)
     if(fieldValueSpecs.fieldType == "spacedCharacterString"):
         return generateSpacedCharacterString(fieldValueSpecs.valueLength)
+    if(fieldValueSpecs.fieldType == "spacedWildString"):
+        return generateSpacedWildString(fieldValueSpecs.valueLength , fieldValueSpecs.wildString)
+    if(fieldValueSpecs.fieldType == "noSpacedWildString"):
+        return generateNoSpacedWildString(fieldValueSpecs.valueLength , fieldValueSpecs.wildString)
 
-#to be done later
-def validateFieldValueSpecs(fieldValueSpecs):
+
+
+#Get Value type
+def getValueType(fieldValueSpecs):
+    if(fieldValueSpecs.isWildString == True and fieldValueSpecs.space == True):
+        return "spacedWildString"
+    if(fieldValueSpecs.isWildString == True and fieldValueSpecs.nospace == True):
+        return "noSpacedWildString"
     if(fieldValueSpecs.number == True):
         return "number"
     if(fieldValueSpecs.space == True):
         return "spacedCharacterString"
     if(fieldValueSpecs.nospace == True):
         return "noSpacedCharacterString"
+
 
 
 """def validateSpaceOccurrence(fieldValueSpecs):
@@ -104,7 +179,11 @@ def setFieldValueSpecs(attribute,fieldValueSpecs):
         fieldValueSpecs.number = True
         fieldValueSpecs.space = False
     elif(type(attribute) == list):
-        fieldValueSpecs.valueLength = getAttributeLength(attribute)
+        if(type(attribute[0]) == list):
+            fieldValueSpecs.wildString = (attribute[0])[0]
+            fieldValueSpecs.isWildString = True
+        if(type(attribute[0]) == int):
+            fieldValueSpecs.valueLength = getAttributeLength(attribute)
     else:
         return False
     return fieldValueSpecs
@@ -123,14 +202,15 @@ def jsonDataGenerator(totalDocuments = 1, documentTemplate = []):
     for x in range(totalDocuments):
         document = parseDocumentTemplate(documentTemplate)      #parseDocumentTemplate should return a dictionary
         collection.append(document)
-    return collection
+    return collection                                           #returns list of dictionaries
 
-print(jsonDataGenerator(1,[{"username":[[2,20],"nospace"]},
-                     {"email":[[4,10],"nospace"]},
-                     {"phoneNumber":[[10,10],"number"]},
-                     {"title":[[6,90],"space"]},
-                     {"content":[[200,600],"space"]}]))
+jsonData = jsonDataGenerator(1,[{"username":[ [2,20],"nospace" ]},
+                     {"email":[ [4,90] , [["*@*.*.com?"]] , "space"]},
+                     {"phoneNumber":[ [10,10],"number" ]},
+                     {"title":[ [6,90],"space" ]},
+                     {"content":[ [200,600],"space"] }] )
 
-
+for dict in jsonData:
+    print(dict)
 
 
